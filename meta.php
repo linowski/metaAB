@@ -54,6 +54,7 @@
                         $ourData[$i]["zscore"] = "asd";  
                         $ourData[$i]["p"] = null;
                         $ourData[$i]["effect"] = null;  
+                        $ourData[$i]["stderror"] = null;  
                     }
                     $dynField = "A" . $i . "v";
                     if ($fieldName == $dynField && !empty($fieldValue)) {
@@ -71,7 +72,7 @@
                 }
 
 
-                //Calculate Z Scores And P Valuees
+                //Calculate Z Scores And P Values
                 foreach ($ourData as $loopKey => $loopValue) {
                     
                     //$loopKey holds the number of our array like 1,2,3 etc.
@@ -91,6 +92,7 @@
                     $ourData[$loopKey]["p"] = $p;
                     $ourData[$loopKey]["effect"] = calculateImprovement($loopValue[$av], $loopValue[$as], $loopValue[$bv], $loopValue[$bs], false);
                     $ourData[$loopKey]["sample"] = $loopValue[$av] + $loopValue[$bv];
+                    $ourData[$loopKey]["stderror"] = calcStdErr($loopValue[$as],$loopValue[$bs],$loopValue[$av],$loopValue[$bv],$loopValue,$loopKey);
 
                     //negate the zscore if effect is less than 0
                     if ($ourData[$loopKey]["effect"] <= 0) {
@@ -303,6 +305,17 @@ function calculateZscore($controlCount, $variantCount, $controlSample, $variantS
     return false;
 }
 
+function calcStdErr($controlCount, $variantCount, $controlSample, $variantSample,$arrayRef,$loopKey)
+{
+    if ($controlCount !== null && $variantCount!== null && $controlSample!== null && $variantSample!== null) {
+        // Calculate the pooled standard error
+        $p_pooled = ($controlCount + $variantCount) / ($controlSample + $variantSample);
+        $standard_error = sqrt($p_pooled * (1 - $p_pooled) * (1 / $controlSample + 1 / $variantSample));
+
+        return $standard_error;
+    }
+    return false;
+}
 
 function calculateP($score,$numoftests)
 {
