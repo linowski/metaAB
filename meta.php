@@ -159,8 +159,8 @@
 
                 
 
-               
 
+                
                 
                 
                 //META-ANALYZE
@@ -192,11 +192,11 @@
                 foreach ($ourData as $loopKey => $loopValue) {
                     if ($ourData[$loopKey]["zscore"]) {
                         
-                        //calculate weight and store in array
-                        $ourData[$loopKey]["weight"] = sqrt($ourData[$loopKey]["sample"]/$highestSample);
+                        //calculate weight and store in array (Ronny's approach)
+                        //$ourData[$loopKey]["weight"] = sqrt($ourData[$loopKey]["sample"]/$highestSample);
                         
-                        // calc standard error
-                        // weight = 1 / standard error **2;
+                        //calculate weight (Tyler's approach): weight = 1 / standard error **2;
+                        $ourData[$loopKey]["weight"] = 1 / ($ourData[$loopKey]["stderror"] **2);
 
                         $metaEffect += ($ourData[$loopKey]['effect'] * $ourData[$loopKey]['weight']);
 
@@ -214,33 +214,27 @@
                     $metaEffect = $metaEffect / $sumOfWeights;
                 }
 
-        
 
-
-                if ($numoftests > 0) {
                 //Stoufer Value
-                $stouffer = $totalZscore / sqrt($numoftests);
-                $metap = calculateP($totalZscore,$numoftests);
+                if ($numoftests > 0) {
+                    $stouffer = $totalZscore / sqrt($numoftests);
+                    $metap = calculateP($totalZscore,$numoftests);
 
-
-                if ($metap < 0.000000000000001) {
-                    $metap = 0.000000000000001;
-                }
-            
-                $metap = number_format($metap, 15);
-
-
+                    if ($metap < 0.000000000000001) {
+                        $metap = 0.000000000000001;
+                    }
                 
-                //Output
-                echo "<strong>META RESULTS</strong><br>";
-                echo "<div style='color: #2547BE; margin: 5px 0; font-size: 22px;'>META PVALUE: <span style='font-weight: bold;'>$metap</span></div>";
-                echo "<div style='color: #2547BE; margin: 5px 0; font-size: 22px;'>META RELATIVE EFFECT: <span style='font-weight: bold;'>$metaEffect%</span> </div>";
-                echo "Number of Tests: $numoftests <br>";
-                echo "Total Zscore: $totalZscore <br>";
-                echo "Stouffer: $stouffer <br>";
-                echo "Sum Of Weights: $sumOfWeights <br>";
-                echo "<hr class='uk-margin-medium-top'>";
-                
+                    $metap = number_format($metap, 15);
+                    
+                    //Output
+                    echo "<strong>META RESULTS</strong><br>";
+                    echo "<div style='color: #2547BE; margin: 5px 0; font-size: 22px;'>META PVALUE: <span style='font-weight: bold;'>$metap</span></div>";
+                    echo "<div style='color: #2547BE; margin: 5px 0; font-size: 22px;'>META RELATIVE EFFECT: <span style='font-weight: bold;'>$metaEffect%</span> </div>";
+                    echo "Number of Tests: $numoftests <br>";
+                    echo "Total Zscore: $totalZscore <br>";
+                    echo "Stouffer: $stouffer <br>";
+                    echo "Sum Of Weights: $sumOfWeights <br>";
+                    echo "<hr class='uk-margin-medium-top'>";
                 }
 
 
