@@ -14,7 +14,7 @@ A big thanks to the following indivduals for making this little project possible
 - [Ryan Thomas](https://www.linkedin.com/in/ryancharlesthomas/) for finding that the initial p-values were not being properly calculating upon the initial release. :)
 
 ## Working Preview
-[I'm hosting this code here](https://goodui.org/tests/) for a functional preview of the calculator.
+[I'm hosting this code here](https://goodui.org/meta/) for a functional preview of the calculator.
 
 ## Requirements
 - PHP
