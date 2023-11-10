@@ -10,40 +10,22 @@
 
 
 <div id="content">
-
-
-
     <div id="content-body">
-
-
-
         <div class="uk-text-center uk-margin-large-bottom uk-margin-medium-top">
-
             <div class="uk-container uk-container-large">
-
                 <h1 class="uk-heading-medium">
-
                     Meta-Analysis Calculator For A/B Tests
-
                 </h1>
 
                 <p class="uk-text-large">
                     <div class="uk-text-large uk-margin-remove">For meta-analyzing and combining two or more a/b tests together.</div>
                     <div class="uk-text-medium uk-margin-remove">Good for apples, red, green, orange-like, pink or simply honey crisps. Maybe even oranges or fruit as well? Your call.<br></div>
                 </p>
-                
-
-                
-
 
                 <hr class="uk-margin-medium-top">
 
 
                 <?php 
-               
-
-  
-
 
 
                 //sanitize our inputs
@@ -65,7 +47,7 @@
                     }
 
 
-
+                    //create an array for each a/b test that will later store necessary values and calculations
                     $dynField = "A" . $i . "s";
                     if ($fieldName == $dynField && !empty($fieldValue)) {
                         $ourData[$i][$dynField] = $fieldValue;
