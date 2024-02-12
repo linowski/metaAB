@@ -71,6 +71,13 @@
 
                 }
 
+                // Approach
+                /*
+                Quick summary of approach:
+                1. We take an inverse variance-weighted (precision-weighted) average of the lifts from each experiment to estimate the "true" lift that's assumed common to all experiments. This is also the maximum-likelihood estimate.
+                2. Because we're working with RELATIVE lifts, we estimate the variance of the lift using the standard approach derived using the delta method.
+                */
+
 
                 //Calculate Z Scores And P Values
                 foreach ($ourData as $loopKey => $loopValue) {
@@ -85,14 +92,16 @@
                     $zscore = calculateZscore($loopValue[$as],$loopValue[$bs],$loopValue[$av],$loopValue[$bv],$loopValue,$loopKey);
 
                     //pval
-                    $p = calculateP($zscore,1);
+                    $p = calculateP2($zscore);
 
                     //store in array
                     $ourData[$loopKey]["zscore"] = $zscore;
                     $ourData[$loopKey]["p"] = $p;
                     $ourData[$loopKey]["effect"] = calculateImprovement($loopValue[$av], $loopValue[$as], $loopValue[$bv], $loopValue[$bs], false);
                     $ourData[$loopKey]["sample"] = $loopValue[$av] + $loopValue[$bv];
-                    $ourData[$loopKey]["stderror"] = calcStdErr($loopValue[$as],$loopValue[$bs],$loopValue[$av],$loopValue[$bv],$loopValue,$loopKey);
+                    //$ourData[$loopKey]["stderror"] = calcStdErr($loopValue[$as],$loopValue[$bs],$loopValue[$av],$loopValue[$bv],$loopValue,$loopKey);
+                    $ourData[$loopKey]["stderror"] = computeStandardErrorOfRelativeLift($loopValue[$as],$loopValue[$bs],$loopValue[$av],$loopValue[$bv]);
+                    
 
                     //negate the zscore if effect is less than 0
                     if ($ourData[$loopKey]["effect"] <= 0) {
@@ -157,14 +166,11 @@
                 <?php 
                 
 
-                
-
 
                 
                 
                 
                 //META-ANALYZE
-                
                 $numoftests = 0;
                 $totalZscore = 0;
                 $highestSample = 0;
@@ -178,7 +184,11 @@
                         $numoftests += 1;
 
                         //update total zscore
-                        $totalZscore += $ourData[$loopKey]["zscore"];  
+                        //$totalZscore += $ourData[$loopKey]["zscore"];  
+
+                        //use new function
+
+
 
                         //find highest sample 
                         if ($ourData[$loopKey]["sample"] > $highestSample) {
@@ -200,38 +210,37 @@
 
                         $metaEffect += ($ourData[$loopKey]['effect'] * $ourData[$loopKey]['weight']);
 
-                        //echo  "<br>" . ($ourData[$loopKey]['effect'] * $ourData[$loopKey]['weight']) . "<br>";
                         //sumweights
                         $sumOfWeights += $ourData[$loopKey]['weight'];
                     }
-
-                   
                 }
-                
+                //calculate variance of metaEffect and standard Error
+                $varMetaEffect = 1 / $sumOfWeights;
+                $se = sqrt($varMetaEffect);
                 
                 //divide meta effect by sum of weights
                 if ($sumOfWeights > 0) {
                     $metaEffect = $metaEffect / $sumOfWeights;
-                }
+                } 
 
 
-                //Stoufer Value
+                //Calculate Meta P-Value
                 if ($numoftests > 0) {
-                    $stouffer = $totalZscore / sqrt($numoftests);
-                    $metap = calculateP($totalZscore,$numoftests);
+                    //Ronny recommended Stouffer method:
+                    //$stouffer = $totalZscore / sqrt($numoftests);
+                    //$metap = calculateP($totalZscore,$numoftests);
 
-                    if ($metap < 0.000000000000001) {
-                        $metap = 0.000000000000001;
-                    }
-                
-                    $metap = number_format($metap, 15);
+                    //Tyler's precision-weighting (aka inverse variance-weighting)
+                    $metaZscore = ($metaEffect / $se) / 100;
+                    $metap = calculateP2($metaZscore);
+
                     
                     //Output
                     echo "<strong>META RESULTS</strong><br>";
                     echo "<div style='color: #2547BE; margin: 5px 0; font-size: 22px;'>META PVALUE: <span style='font-weight: bold;'>$metap</span></div>";
                     echo "<div style='color: #2547BE; margin: 5px 0; font-size: 22px;'>META RELATIVE EFFECT: <span style='font-weight: bold;'>$metaEffect%</span> </div>";
                     echo "Number of Tests: $numoftests <br>";
-                    echo "Total Zscore: $totalZscore <br>";
+                    echo "Total Zscore: $metaZscore <br>";
                     echo "Stouffer: $stouffer <br>";
                     echo "Sum Of Weights: $sumOfWeights <br>";
                     echo "<hr class='uk-margin-medium-top'>";
@@ -284,15 +293,28 @@ function calculateZscore($controlCount, $variantCount, $controlSample, $variantS
     if ($controlCount !== null && $variantCount!== null && $controlSample!== null && $variantSample!== null) {
 
         // Calculate conversion rates
-        $p_A = $controlCount / $controlSample;
-        $p_B = $variantCount / $variantSample;
+        //$p_A = $controlCount / $controlSample;
+        //$p_B = $variantCount / $variantSample;
 
         // Calculate the pooled standard error
-        $p_pooled = ($controlCount + $variantCount) / ($controlSample + $variantSample);
-        $standard_error = sqrt($p_pooled * (1 - $p_pooled) * (1 / $controlSample + 1 / $variantSample));
+        //$p_pooled = ($controlCount + $variantCount) / ($controlSample + $variantSample);
+        //$standard_error = sqrt($p_pooled * (1 - $p_pooled) * (1 / $controlSample + 1 / $variantSample));
 
         // Calculate the z-score
-        $z_score = ($p_B - $p_A) / $standard_error;
+        //$z_score = ($p_B - $p_A) / $standard_error;
+
+        //Tyler's approach
+        $controlMean = $controlCount / $controlSample;
+        $variantMean = $variantCount / $variantSample;
+    
+        $varControlMean = $controlMean * (1 - $controlMean) / $controlSample;
+        $varVariantMean = $variantMean * (1 - $variantMean) / $variantSample;
+
+        $relativeLift = ($variantMean - $controlMean) / $controlMean;
+    
+        $varRelativeLift = $varVariantMean / pow($controlMean, 2) + pow($variantMean, 2) / pow($controlMean, 4) * $varControlMean;
+
+        $z_score = $relativeLift / sqrt($varRelativeLift);
 
         return $z_score;
     }
@@ -311,6 +333,35 @@ function calcStdErr($controlCount, $variantCount, $controlSample, $variantSample
     return false;
 }
 
+function computeStandardErrorOfRelativeLift($controlCount, $variantCount, $controlSample, $variantSample) {
+    if ($controlCount !== null && $variantCount!== null && $controlSample!== null && $variantSample!== null) {
+    // This function calculates the standard error of a relative lift estimate
+    // computed from two proportion estimates using the delta method.
+    //
+    // Note that this methodology relies on two assumptions:
+    // 1. Cov(control_mean, variant_mean) = 0. I.e., the estimates of the control rate and the variant rate are statistically independent.
+    // 2. The first-order Taylor expansion of the ratio is a sufficient approximation. This approximation improves with larger sample sizes.
+
+    $controlMean = $controlCount / $controlSample;
+    $variantMean = $variantCount / $variantSample;
+
+    $varControlMean = $controlMean * (1 - $controlMean) / $controlSample;
+    $varVariantMean = $variantMean * (1 - $variantMean) / $variantSample;
+
+    $varRelativeLift = $varVariantMean / pow($controlMean, 2) + pow($variantMean, 2) / pow($controlMean, 4) * $varControlMean;
+    echo "varControlMean = $varControlMean<br>";
+    echo "varVariantMean = $varVariantMean<br>";
+    echo "varRelativeLift = $varRelativeLift<br>";
+    echo "SQRT varRelativeLift = " . sqrt($varRelativeLift) . "<br><br>";
+
+    return sqrt($varRelativeLift);
+    }
+    return false;
+}
+
+
+//Absolute effects p-value 
+/*
 function calculateP($score,$numoftests)
 {
     $stouffer = $score / sqrt($numoftests);
@@ -327,7 +378,26 @@ function calculateP($score,$numoftests)
     $p_twotail = number_format($p_twotail, 15);
 
 	return $p_twotail;
+}*/
+
+
+function calculateP2($score)
+{
+    $absZ = abs($score);
+
+    // Calculate the two-tailed p-value using the standard normal distribution
+    $p_twotail = 2 * (1 - cumnormdist($absZ));
+    
+    //make sure it's not 0 as that breaks things
+    if ($p_twotail < 0.000000000000001) {
+        $p_twotail = 0.000000000000001;
+    }
+    
+    $p_twotail = number_format($p_twotail, 15);
+
+	return $p_twotail;
 }
+
 
 
 
