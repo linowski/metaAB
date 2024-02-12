@@ -214,12 +214,11 @@
                         $sumOfWeights += $ourData[$loopKey]['weight'];
                     }
                 }
-                //calculate variance of metaEffect and standard Error
-                $varMetaEffect = 1 / $sumOfWeights;
-                $se = sqrt($varMetaEffect);
                 
-                //divide meta effect by sum of weights
+                //calculate variance of metaEffect and standard Error
                 if ($sumOfWeights > 0) {
+                    $varMetaEffect = 1 / $sumOfWeights;
+                    $se = sqrt($varMetaEffect);
                     $metaEffect = $metaEffect / $sumOfWeights;
                 } 
 
@@ -349,10 +348,12 @@ function computeStandardErrorOfRelativeLift($controlCount, $variantCount, $contr
     $varVariantMean = $variantMean * (1 - $variantMean) / $variantSample;
 
     $varRelativeLift = $varVariantMean / pow($controlMean, 2) + pow($variantMean, 2) / pow($controlMean, 4) * $varControlMean;
+    /*
     echo "varControlMean = $varControlMean<br>";
     echo "varVariantMean = $varVariantMean<br>";
     echo "varRelativeLift = $varRelativeLift<br>";
     echo "SQRT varRelativeLift = " . sqrt($varRelativeLift) . "<br><br>";
+    */
 
     return sqrt($varRelativeLift);
     }
