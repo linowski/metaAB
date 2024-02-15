@@ -214,7 +214,7 @@
                         $sumOfWeights += $ourData[$loopKey]['weight'];
                     }
                 }
-                
+
                 //calculate variance of metaEffect and standard Error
                 if ($sumOfWeights > 0) {
                     $varMetaEffect = 1 / $sumOfWeights;
