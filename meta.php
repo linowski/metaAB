@@ -1,3 +1,10 @@
+<?php
+/*ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);*/
+
+?>
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -51,8 +58,10 @@
                     $dynField = "A" . $i . "s";
                     if ($fieldName == $dynField && !empty($fieldValue)) {
                         $ourData[$i][$dynField] = $fieldValue;
-                        $ourData[$i]["zscore"] = "asd";  
+                        $ourData[$i]["zscore"] = "";  
+                        $ourData[$i]["zscore_stouffer"] = "";  
                         $ourData[$i]["p"] = null;
+                        $ourData[$i]["p_stouffer"] = null;
                         $ourData[$i]["effect"] = null;  
                         $ourData[$i]["stderror"] = null;  
                     }
@@ -90,15 +99,19 @@
                     
                     //zscore
                     $zscore = calculateZscore($loopValue[$as],$loopValue[$bs],$loopValue[$av],$loopValue[$bv],$loopValue,$loopKey);
+                    $zscore_stouffer = calculateZscore_stouffer($loopValue[$as],$loopValue[$bs],$loopValue[$av],$loopValue[$bv],$loopValue,$loopKey);
 
                     //pval
-                    $p = calculateP2($zscore);
+                    $p = calculateP($zscore);
+                    $p_stouffer = calculateP_stouffer($zscore_stouffer,1);
 
                     //store in array
                     $ourData[$loopKey]["zscore"] = $zscore;
                     $ourData[$loopKey]["p"] = $p;
                     $ourData[$loopKey]["effect"] = calculateImprovement($loopValue[$av], $loopValue[$as], $loopValue[$bv], $loopValue[$bs], false);
                     $ourData[$loopKey]["sample"] = $loopValue[$av] + $loopValue[$bv];
+                    $ourData[$loopKey]["zscore_stouffer"] = $zscore_stouffer;
+                    $ourData[$loopKey]["p_stouffer"] = $p_stouffer;
                     //$ourData[$loopKey]["stderror"] = calcStdErr($loopValue[$as],$loopValue[$bs],$loopValue[$av],$loopValue[$bv],$loopValue,$loopKey);
                     $ourData[$loopKey]["stderror"] = computeStandardErrorOfRelativeLift($loopValue[$as],$loopValue[$bs],$loopValue[$av],$loopValue[$bv]);
                     
@@ -106,6 +119,7 @@
                     //negate the zscore if effect is less than 0
                     if ($ourData[$loopKey]["effect"] <= 0) {
                         $ourData[$loopKey]["zscore"] = -1 * abs($ourData[$loopKey]["zscore"]);
+                        $ourData[$loopKey]["zscore_stouffer"] = -1 * abs($ourData[$loopKey]["zscore_stouffer"]);
                     }
 
                 }
@@ -173,6 +187,7 @@
                 //META-ANALYZE
                 $numoftests = 0;
                 $totalZscore = 0;
+                $totalZscore_stouffer = 0;
                 $highestSample = 0;
                 $sumOfWeights = 0;
                 $metaEffect = 0;
@@ -184,10 +199,7 @@
                         $numoftests += 1;
 
                         //update total zscore
-                        //$totalZscore += $ourData[$loopKey]["zscore"];  
-
-                        //use new function
-
+                        $totalZscore_stouffer += $ourData[$loopKey]["zscore_stouffer"];  
 
 
                         //find highest sample 
@@ -226,25 +238,37 @@
                 //Calculate Meta P-Value
                 if ($numoftests > 0) {
                     //Ronny recommended Stouffer method:
-                    //$stouffer = $totalZscore / sqrt($numoftests);
-                    //$metap = calculateP($totalZscore,$numoftests);
+                    $stouffer = $totalZscore_stouffer / sqrt($numoftests);
+                    $metap_stouffer = calculateP_stouffer($totalZscore_stouffer,$numoftests);
 
                     //Tyler's precision-weighting (aka inverse variance-weighting)
                     $metaZscore = ($metaEffect / $se) / 100;
-                    $metap = calculateP2($metaZscore);
+                    $metap = calculateP($metaZscore);
 
                     
                     //Output
-                    echo "<strong>META RESULTS</strong><br>";
-                    echo "<div style='color: #2547BE; margin: 5px 0; font-size: 22px;'>META PVALUE: <span style='font-weight: bold;'>$metap</span></div>";
+                    echo "<strong>META RESULTS FOR RELATIVE EFFECT / Inverse Variance-weighted Method</strong><br>";
                     echo "<div style='color: #2547BE; margin: 5px 0; font-size: 22px;'>META RELATIVE EFFECT: <span style='font-weight: bold;'>$metaEffect%</span> </div>";
+                    echo "<div style='color: #2547BE; margin: 5px 0; font-size: 22px;'>META PVALUE: <span style='font-weight: bold;'>$metap</span></div>";
                     echo "Number of Tests: $numoftests <br>";
                     echo "Total Zscore: $metaZscore <br>";
-                    echo "Stouffer: $stouffer <br>";
                     echo "Sum Of Weights: $sumOfWeights <br>";
                     echo "<hr class='uk-margin-medium-top'>";
-                }
 
+                    //Output
+                    echo "<br>";
+                    echo "<strong>META RESULTS FOR ABSOLUTE EFFECT / Stouffer Method</strong><br>";
+                    echo "<div style='color: #2547BE; margin: 5px 0; font-size: 22px;'>META PVALUE: <span style='font-weight: bold;'>$metap_stouffer</span></div>";
+                    echo "Stouffer: $stouffer <br>";
+
+                    $i=1;
+                    foreach ($ourData as $loopKey => $loopValue) {
+                        echo "Test $i P-Value: " . $ourData[$loopKey]["p_stouffer"] . "<br>";
+                        $i++;
+                    }
+                    echo "<hr class='uk-margin-medium-top'>";
+                    
+                }
 
 
                 //Output Full Array
@@ -290,18 +314,6 @@ function showArray($ourData) {
 function calculateZscore($controlCount, $variantCount, $controlSample, $variantSample,$arrayRef,$loopKey)
 {
     if ($controlCount !== null && $variantCount!== null && $controlSample!== null && $variantSample!== null) {
-
-        // Calculate conversion rates
-        //$p_A = $controlCount / $controlSample;
-        //$p_B = $variantCount / $variantSample;
-
-        // Calculate the pooled standard error
-        //$p_pooled = ($controlCount + $variantCount) / ($controlSample + $variantSample);
-        //$standard_error = sqrt($p_pooled * (1 - $p_pooled) * (1 / $controlSample + 1 / $variantSample));
-
-        // Calculate the z-score
-        //$z_score = ($p_B - $p_A) / $standard_error;
-
         //Tyler's approach
         $controlMean = $controlCount / $controlSample;
         $variantMean = $variantCount / $variantSample;
@@ -319,6 +331,27 @@ function calculateZscore($controlCount, $variantCount, $controlSample, $variantS
     }
     return false;
 }
+
+function calculateZscore_stouffer($controlCount, $variantCount, $controlSample, $variantSample,$arrayRef,$loopKey)
+{
+    if ($controlCount !== null && $variantCount!== null && $controlSample!== null && $variantSample!== null) {
+
+        // Calculate conversion rates
+        $p_A = $controlCount / $controlSample;
+        $p_B = $variantCount / $variantSample;
+
+        // Calculate the pooled standard error
+        $p_pooled = ($controlCount + $variantCount) / ($controlSample + $variantSample);
+        $standard_error = sqrt($p_pooled * (1 - $p_pooled) * (1 / $controlSample + 1 / $variantSample));
+
+        // Calculate the z-score
+        $z_score = ($p_B - $p_A) / $standard_error;
+
+        return $z_score;
+    }
+    return false;
+}
+
 
 function calcStdErr($controlCount, $variantCount, $controlSample, $variantSample,$arrayRef,$loopKey)
 {
@@ -362,8 +395,7 @@ function computeStandardErrorOfRelativeLift($controlCount, $variantCount, $contr
 
 
 //Absolute effects p-value 
-/*
-function calculateP($score,$numoftests)
+function calculateP_stouffer($score,$numoftests)
 {
     $stouffer = $score / sqrt($numoftests);
     $stouffer = abs($stouffer);
@@ -379,10 +411,10 @@ function calculateP($score,$numoftests)
     $p_twotail = number_format($p_twotail, 15);
 
 	return $p_twotail;
-}*/
+}
 
 
-function calculateP2($score)
+function calculateP($score)
 {
     $absZ = abs($score);
 
